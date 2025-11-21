@@ -5,6 +5,8 @@ from langchain_core.messages import ToolMessage, HumanMessage
 from dotenv import load_dotenv
 import json
 
+from regex import T
+
 load_dotenv()
 
 
@@ -20,6 +22,11 @@ SERVERS = {
             "run",  # The subcommand for fastmcp to execute the application
             "C:\\Users\\Samba\\math\\main.py",  # The path to your fastmcp application
         ],
+    
+    },
+    "expense": {
+        "transport": "streamable_http",
+        "url": "https://expense-tracking.fastmcp.app/mcp",
     }
 }
 
@@ -46,28 +53,40 @@ async def main():
 
         llm_with_tools = llm.bind_tools(tools)
 
-        # prompt = "what is the product of 23 and 47 using the math tool?"
-        prompt = "Treat as general query and response to what is capital of india?"
+        # prompt = "what is the product of 13 and 47 using the math tool?"
+        # prompt = "Treat as general query and response to what is capital of india?"
+        # prompt = """Using the expense tool, list all the expenses available between 01-Nov-2025 and 22-Nov-2025.
+        # Rs 1200 for transportation on 10-Nov-2025
+
+        # using the expense tool.
+        #             """
+        prompt = "Using the expense tool, list all the expenses available between 01-Nov-2025 and 22-Nov-2025."
+        # prompt = "Using both the math and expense tools, calculate the total expenses if I add Rs 1500 for rent and Rs 600 for utilities, and then multiply that total by 2."
 
         human_message = HumanMessage(content=prompt)
         response = await llm_with_tools.ainvoke([human_message])
 
         if not response.tool_calls:
-            print(f"\nFinal response: {response.content}")
+            print(f"\nFinal response(No Tool Call): {response.content}")
             return
+        tool_messages = []
+        for tc in response.tool_calls:
+            tool_to_use = response.tool_calls[0]["name"]
+            tool_args = response.tool_calls[0]["args"]
+            tool_id = response.tool_calls[0]["id"]
+            # print(f"\nUsing tool: {tool_to_use}")
 
-        tool_to_use = response.tool_calls[0]["name"]
-        tool_args = response.tool_calls[0]["args"]
-        tool_id = response.tool_calls[0]["id"]
-        # print(f"\nUsing tool: {tool_to_use}")
+            tool_response = await named_tools[tool_to_use].ainvoke(tool_args)
+                # print(f"\nTool response: {tool_response}")
 
-        tool_response = await named_tools[tool_to_use].ainvoke(tool_args)
-            # print(f"\nTool response: {tool_response}")
-
-        tool_message = ToolMessage(content=tool_response, tool_call_id=tool_id)
-
-        final_response = await llm_with_tools.ainvoke([human_message, response, tool_message])
-        print(f"\nFinal response: {final_response.content}")
+            # tool_message = ToolMessage(content=tool_response, tool_call_id=tool_id)
+            tool_messages.append(ToolMessage(content=json.dumps(tool_response), tool_call_id=tool_id))
+        try:    
+            final_response = await llm_with_tools.ainvoke([human_message, response, *tool_messages])
+            print(f"\nFinal response: {final_response}")
+            print(f"\nFinal response: {final_response.content}")
+        except Exception as e:
+            print(f"\nError during final response generation: {e}")    
 
     except Exception as e:
         print("\n-------------------------------------------------")
