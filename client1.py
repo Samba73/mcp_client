@@ -5,13 +5,10 @@ from langchain_core.messages import ToolMessage, HumanMessage
 from dotenv import load_dotenv
 import json
 
-from regex import T
 
 load_dotenv()
 
 
-# The original command was trying to execute 'uv run fastmcp run ...' which is incorrect.
-# We correct this to directly call the 'fastmcp' command with its 'run' arguments.
 SERVERS = {
     "math": {
         "transport": "stdio",
@@ -61,7 +58,7 @@ async def main():
         # using the expense tool.
         #             """
         prompt = "Using the expense tool, list all the expenses available between 01-Nov-2025 and 22-Nov-2025."
-        # prompt = "Using both the math and expense tools, calculate the total expenses if I add Rs 1500 for rent and Rs 600 for utilities, and then multiply that total by 2."
+        # prompt = "Using both the math and expense tools, calculate the total expenses if I add Rs 1500 for rent for 01-Nov-2025 and Rs 600 for utilities spent on 05-Nov-2025, and then multiply that total by 2."
 
         human_message = HumanMessage(content=prompt)
         response = await llm_with_tools.ainvoke([human_message])
